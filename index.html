@@ -1,0 +1,26 @@
+<html>
+  <title>dat box</title>
+  <body>
+    <script src="dat.gui.js"></script>
+    <script src="mathbox-bundle.js"></script>
+
+    <script>
+    var gui = new dat.GUI();
+
+      var mathbox = mathBox({
+        plugins: ['core', 'controls', 'cursor', 'stats'],
+        controls: {
+          klass: THREE.OrbitControls
+        },
+      });
+
+      var three = mathbox.three;
+
+      three.renderer.setClearColor(new THREE.Color(0x000000), 1.0);
+
+      var camera = mathbox.camera({
+        position: [0, 0, 1]
+      });
+    </script>
+  </body>
+</html>
