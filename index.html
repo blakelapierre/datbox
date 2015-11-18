@@ -13,13 +13,20 @@
         var parameters = gui.addFolder('Parameters');
 
         parameters.add(controls, 'xMin', -Math.pow(2, 8), Math.pow(2, 8)).step(1).onChange(update('xMin'));
-        parameters.add(controls, 'yMin', -Math.pow(2, 8), Math.pow(2, 8)).step(1);
-        parameters.add(controls, 'width', 1, Math.pow(2, 14)).step(1);
-        parameters.add(controls, 'height', 1, Math.pow(2, 12)).step(1);
+        parameters.add(controls, 'yMin', -Math.pow(2, 8), Math.pow(2, 8)).step(1).onChange(update('yMin'));
+        parameters.add(controls, 'width', 1, Math.pow(2, 14)).step(1).onChange(update('width'));
+        parameters.add(controls, 'height', 1, Math.pow(2, 12)).step(1).onChange(update('height'));
+        parameters.add(controls, 'projection', ['Cartesian', 'Polar', 'Spherical']).onChange(update('projection'));
 
-        parameters.addColor(controls, 'color');
+
+        var display = gui.addFolder('Display');
+
+        display.addColor(controls, 'color').onChange(update('color'));
+        display.add(controls, 'pointSize', 1, 10).step(1).onChange(update('pointSize'));
+
 
         parameters.open();
+        display.open();
 
         gui.remember(controls);
 
@@ -50,7 +57,7 @@
 
         var controls = new Controls();
 
-        var view = buildProjection('cartesian', controls.xMin, controls.xMin + controls.width - 1, controls.yMin, controls.yMin + controls.height - 1, false, 1);
+        var view = buildProjection(controls.projection, controls.xMin, controls.xMin + controls.width - 1, controls.yMin, controls.yMin + controls.height - 1, false, 1);
 
         view
           .matrix({
@@ -60,7 +67,7 @@
             expr: divisors(controls.xMin, controls.yMin),
           })
           .point({
-            color: [68/255, 174/255, 218/255],
+            color: controls.color.map(function(v) { return v / 255; }),
             size: controls.pointSize,
             blending: 'add',
             shape: 'square',
@@ -86,12 +93,84 @@
           this.width = Math.pow(2, 5);
           this.height = Math.pow(2, 4);
 
+          this.projection = 'Cartesian';
+
           this.pointSize = 1;
           this.color = [68, 174, 218];
 
           this.set = function(name, value) {
             console.log('set', name, value, this);
+            switch(name) {
+              case 'xMin':
+              case 'yMin':
+              case 'width':
+              case 'height':
+                updateRange();
+                break;
+
+              case 'projection': updateProjection(); break;
+
+              case 'color': updateColor(); break;
+              case 'pointSize': updatePointSize(); break;
+            }
           };
+        }
+
+        function updateRange() {
+          view[0].set('range', [
+            [controls.xMin, controls.xMin + controls.width - 1],
+            [controls.yMin, controls.yMin + controls.height - 1],
+            [controls.yMin, controls.yMin + controls.height - 1]
+          ]);
+
+          view.select('matrix').set('width', controls.width);
+          view.select('matrix').set('height', controls.height);
+        }
+
+        function updateProjection() {
+          console.log(view);
+          view.remove();
+
+          view = buildProjection(controls.projection, controls.xMin, controls.xMin + controls.width - 1, controls.yMin, controls.yMin + controls.height - 1, false, 1);
+
+          view
+            .matrix({
+              width: controls.width,
+              height: controls.height,
+              channels: 3,
+              expr: divisors(controls.xMin, controls.yMin),
+            })
+            .point({
+              color: controls.color.map(function(v) { return v / 255; }),
+              size: controls.pointSize,
+              blending: 'add',
+              shape: 'square',
+              opacity: 0.8,
+              zWrite: false,
+              zTest: false,
+            });
+
+          function divisors(x_min, y_min) {
+            return (emit, x, y, i, j, t) => {
+              x = x + x_min;
+              y = y + y_min;
+
+              if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, 2);
+            };
+          }
+
+          // console.log(newView, view.select('matrix'));
+          // newView[0].add(view.select('matrix')[0]);
+          // newView[0].add(view.select('point')[0]);
+          // console.log(newView, view.select('matrix'));
+        }
+
+        function updateColor() {
+          view.select('point').set('color', controls.color.map(function(v) { return v / 255; }));
+        }
+
+        function updatePointSize() {
+          view.select('point').set('size', controls.pointSize);
         }
 
 
@@ -108,10 +187,10 @@
 
         function buildProjection(name, x_min, x_max, y_min, y_max, helix, helixValue) {
           var projections = {
-            'cartesian': {
+            'Cartesian': {
               scale: function(width, height) { return [16/9, 1, 1]; }
             },
-            'polar': {
+            'Polar': {
               // x: function(min, max) { return [min, Math.sqrt(max)]; },
               x: function(min, max) { return [min, max]; },
               range: function(x_min, x_max, y_min, y_max, z_min, z_max) {
@@ -124,7 +203,7 @@
               scale: function(width, height) { return [16/9, 1, 1]; },
               helix: 0.01
             },
-            'spherical': {
+            'Spherical': {
               x: function(min, max) { return [min, Math.sqrt(max)]; },
               range: function(x_min, x_max, y_min, y_max, z_min, z_max) {
                 return [
@@ -177,7 +256,7 @@
 
           console.log('build', helix, options);
 
-          return mathbox[name](options);
+          return mathbox[name.toLowerCase()](options);
         }
       }
     </script>
