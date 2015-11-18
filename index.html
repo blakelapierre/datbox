@@ -1,5 +1,13 @@
 <html>
-  <title>dat box</title>
+  <head>
+    <title>dat box</title>
+
+    <style>
+      body {
+        overflow: hidden;
+      }
+    </style>
+  </head>
   <body>
     <script src="dat.gui.js"></script>
     <script src="mathbox-bundle.js"></script>
@@ -10,25 +18,57 @@
       function setupDatGui(controls) {
         var gui = new dat.GUI();
 
-        var parameters = gui.addFolder('Parameters');
+        var parameters = gui.addFolder('Parameters'),
+            display = gui.addFolder('Display'),
+            box = parameters.addFolder('Box'),
+            projection = parameters.addFolder('Projection');
 
-        parameters.add(controls, 'xMin', -Math.pow(2, 8), Math.pow(2, 8)).step(1).onChange(update('xMin'));
-        parameters.add(controls, 'yMin', -Math.pow(2, 8), Math.pow(2, 8)).step(1).onChange(update('yMin'));
-        parameters.add(controls, 'width', 1, Math.pow(2, 14)).step(1).onChange(update('width'));
-        parameters.add(controls, 'height', 1, Math.pow(2, 12)).step(1).onChange(update('height'));
-        parameters.add(controls, 'projection', ['Cartesian', 'Polar', 'Spherical']).onChange(update('projection'));
+        var x = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
+            y = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
+            w = {min: 1, max: Math.pow(2, 14), step: 1},
+            h = {min: 1, max: Math.pow(2, 12), step: 1};
+
+        add(box, [
+          ['xMin', x.min, x.max, x.step],
+          ['yMin', y.min, y.max, y.step],
+          ['width', w.min, w.max, w.step],
+          ['height', h.min, h.max, h.step],
+        ]);
+
+        add(projection, [
+          ['projection', ['Cartesian', 'Polar', 'Spherical']]
+        ]);
 
 
-        var display = gui.addFolder('Display');
-
-        display.addColor(controls, 'color').onChange(update('color'));
-        display.add(controls, 'pointSize', 1, 10).step(1).onChange(update('pointSize'));
-
+        add(display, [
+          ['pointSize', 1, 10, 1],
+          ['color']
+        ]);
 
         parameters.open();
         display.open();
+        box.open();
+        projection.open();
 
         gui.remember(controls);
+
+        function add(folder, items) {
+          items.forEach(function(item) { addItem.apply(null, item); });
+
+          function addItem(name) {
+            if (arguments.length > 2) {
+              var min = arguments[1], max = arguments[2], step = arguments[3];
+              folder.add(controls, name, min, max).step(step).onChange(update(name));
+            }
+            else if (arguments.length === 2) {
+              var options = arguments[1];
+              folder.add(controls, name, options).onChange(update(name));
+            }
+            else if (arguments.length === 1) {
+              folder.addColor(controls, name).onChange(update(name));
+            }
+          }
+        }
 
         function update(name) {
           return function(value) {
@@ -104,9 +144,7 @@
               case 'xMin':
               case 'yMin':
               case 'width':
-              case 'height':
-                updateRange();
-                break;
+              case 'height': updateRange(); break;
 
               case 'projection': updateProjection(); break;
 
@@ -149,15 +187,6 @@
               zWrite: false,
               zTest: false,
             });
-
-          function divisors(x_min, y_min) {
-            return (emit, x, y, i, j, t) => {
-              x = x + x_min;
-              y = y + y_min;
-
-              if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, 2);
-            };
-          }
 
           // console.log(newView, view.select('matrix'));
           // newView[0].add(view.select('matrix')[0]);
@@ -258,6 +287,15 @@
 
           return mathbox[name.toLowerCase()](options);
         }
+      }
+
+      function divisors(x_min, y_min) {
+        return (emit, x, y, i, j, t) => {
+          x = x + x_min;
+          y = y + y_min;
+
+          if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, 2);
+        };
       }
     </script>
   </body>
