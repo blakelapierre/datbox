@@ -12,12 +12,22 @@
 
         var parameters = gui.addFolder('Parameters');
 
-        parameters.add(controls, 'xMin', -Math.pow(2, 8), Math.pow(2, 8)).step(1);
+        parameters.add(controls, 'xMin', -Math.pow(2, 8), Math.pow(2, 8)).step(1).onChange(update('xMin'));
         parameters.add(controls, 'yMin', -Math.pow(2, 8), Math.pow(2, 8)).step(1);
         parameters.add(controls, 'width', 1, Math.pow(2, 14)).step(1);
         parameters.add(controls, 'height', 1, Math.pow(2, 12)).step(1);
 
+        parameters.addColor(controls, 'color');
+
         parameters.open();
+
+        gui.remember(controls);
+
+        function update(name) {
+          return function(value) {
+            controls.set(name, value);
+          };
+        }
       }
 
       function setupMathbox() {
@@ -34,16 +44,140 @@
         three.renderer.setClearColor(new THREE.Color(0x000000), 1.0);
 
         var camera = mathbox.camera({
+          proxy: true,
           position: [0, 0, 1]
         });
 
-        return new Controls();
+        var controls = new Controls();
+
+        var view = buildProjection('cartesian', controls.xMin, controls.xMin + controls.width - 1, controls.yMin, controls.yMin + controls.height - 1, false, 1);
+
+        view
+          .matrix({
+            width: controls.width,
+            height: controls.height,
+            channels: 3,
+            expr: divisors(controls.xMin, controls.yMin),
+          })
+          .point({
+            color: [68/255, 174/255, 218/255],
+            size: controls.pointSize,
+            blending: 'add',
+            shape: 'square',
+            opacity: 0.8,
+            zWrite: false,
+            zTest: false,
+          });
+
+        function divisors(x_min, y_min) {
+          return (emit, x, y, i, j, t) => {
+            x = x + x_min;
+            y = y + y_min;
+
+            if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, 2);
+          };
+        }
+
+        return controls;
 
         function Controls() {
           this.xMin = 1;
           this.yMin = 1;
           this.width = Math.pow(2, 5);
           this.height = Math.pow(2, 4);
+
+          this.pointSize = 1;
+          this.color = [68, 174, 218];
+
+          this.set = function(name, value) {
+            console.log('set', name, value, this);
+          };
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+        function buildProjection(name, x_min, x_max, y_min, y_max, helix, helixValue) {
+          var projections = {
+            'cartesian': {
+              scale: function(width, height) { return [16/9, 1, 1]; }
+            },
+            'polar': {
+              // x: function(min, max) { return [min, Math.sqrt(max)]; },
+              x: function(min, max) { return [min, max]; },
+              range: function(x_min, x_max, y_min, y_max, z_min, z_max) {
+                return [
+                  [x_min, x_max],
+                  [y_min, y_max],
+                  [z_min, z_max]
+                ];
+              },
+              scale: function(width, height) { return [16/9, 1, 1]; },
+              helix: 0.01
+            },
+            'spherical': {
+              x: function(min, max) { return [min, Math.sqrt(max)]; },
+              range: function(x_min, x_max, y_min, y_max, z_min, z_max) {
+                return [
+                  [x_min, x_max],
+                  [Math.sqrt(y_min), Math.sqrt(y_max)],
+                  [Math.round(Math.sqrt(Math.abs(z_min))), Math.round(Math.sqrt(Math.abs(z_max)))]
+                ];
+              },
+              scale: function(width, height) {
+                return [16/9, 1, 1];
+              }
+            }
+          };
+
+          var z_min = y_min,
+              z_max = y_max;
+
+          var projection = projections[name];
+
+          if (projection.z) {
+            var transformed = projection.z(z_min, z_max);
+
+            z_min = transformed[0];
+            z_max = transformed[1];
+          }
+
+          if (projection.range) {
+            var range = projection.range(x_min, x_max, y_min, y_max, z_min, z_max);
+
+            x_min = range[0][0];
+            x_max = range[0][1];
+            y_min = range[1][0];
+            y_max = range[1][1];
+            z_min = range[2][0];
+            z_max = range[2][1];
+          }
+
+          var width = x_max - x_min + 1,
+                height = y_max - y_min + 1;
+          var options = {
+            range: [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
+            scale: projection.scale ? projection.scale(width, height) : [1, 1, 1],
+            position: [Math.sqrt(Math.PI), 0, 0],
+          };
+
+          if (name === 'polar' && helix) {
+            options.helix = projection.helix;
+            options.helix = helixValue;
+          }
+
+          console.log('build', helix, options);
+
+          return mathbox[name](options);
         }
       }
     </script>
