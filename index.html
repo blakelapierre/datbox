@@ -5,22 +5,45 @@
     <script src="mathbox-bundle.js"></script>
 
     <script>
-      var gui = new dat.GUI();
+      setupDatGui(setupMathbox());
 
-      var mathbox = mathBox({
-        plugins: ['core', 'controls', 'cursor', 'stats'],
-        controls: {
-          klass: THREE.OrbitControls
-        },
-      });
+      function setupDatGui(controls) {
+        var gui = new dat.GUI();
 
-      var three = mathbox.three;
+        var parameters = gui.addFolder('Parameters');
 
-      three.renderer.setClearColor(new THREE.Color(0x000000), 1.0);
+        parameters.add(controls, 'xMin');
+        parameters.add(controls, 'yMin');
+        parameters.add(controls, 'width');
+        parameters.add(controls, 'height');
+      }
 
-      var camera = mathbox.camera({
-        position: [0, 0, 1]
-      });
+      function setupMathbox() {
+
+        var mathbox = mathBox({
+          plugins: ['core', 'controls', 'cursor', 'stats'],
+          controls: {
+            klass: THREE.OrbitControls
+          },
+        });
+
+        var three = mathbox.three;
+
+        three.renderer.setClearColor(new THREE.Color(0x000000), 1.0);
+
+        var camera = mathbox.camera({
+          position: [0, 0, 1]
+        });
+
+        return new Controls();
+
+        function Controls() {
+          this.xMin = 1;
+          this.yMin = 1;
+          this.width = Math.pow(2, 5);
+          this.height = Math.pow(2, 4);
+        }
+      }
     </script>
   </body>
 </html>
