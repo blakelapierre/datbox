@@ -12,10 +12,12 @@
 
         var parameters = gui.addFolder('Parameters');
 
-        parameters.add(controls, 'xMin');
-        parameters.add(controls, 'yMin');
-        parameters.add(controls, 'width');
-        parameters.add(controls, 'height');
+        parameters.add(controls, 'xMin', -Math.pow(2, 8), Math.pow(2, 8)).step(1);
+        parameters.add(controls, 'yMin', -Math.pow(2, 8), Math.pow(2, 8)).step(1);
+        parameters.add(controls, 'width', 1, Math.pow(2, 14)).step(1);
+        parameters.add(controls, 'height', 1, Math.pow(2, 12)).step(1);
+
+        parameters.open();
       }
 
       function setupMathbox() {
