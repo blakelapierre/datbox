@@ -57,7 +57,7 @@
 
         comm.on('hidePolarOptions', () => {
           const controllers = projection.__controllers,
-                length = controllers.length;
+                {length} = controllers;
 
           if (polarOptions) {
             //big hack
@@ -116,7 +116,7 @@
           },
         });
 
-        const three = mathbox.three;
+        const {three} = mathbox;
 
         three.renderer.setClearColor(new THREE.Color(0x000000), 1.0);
 
@@ -305,47 +305,44 @@
           return view;
 
           function buildView(view, config) {
-            let name = config.projection,
-                  x_min = config.xMin,
-                  x_max = config.xMax,
-                  y_min = config.yMin,
-                  y_max = config.yMax,
-                  helix = config.helix,
-                  helixValue = config.helixValue;
+            let {projection: name,
+                 xMin: x_min, xMax: x_max,
+                 yMin: y_min, yMax: y_max,
+                 helix, helixValue} = config;
 
             let z_min = y_min,
-                  z_max = y_max;
+                z_max = y_max;
 
             const projection = projections[name];
+            const {range, scale, z} = projections[name];
 
-            if (projection.z) {
-              const transformed = projection.z(z_min, z_max);
+            if (z) {
+              const transformed = z(z_min, z_max);
 
               z_min = transformed[0];
               z_max = transformed[1];
             }
 
-            if (projection.range) {
-              const range = projection.range(x_min, x_max, y_min, y_max, z_min, z_max);
+            if (range) {
+              const r = range(x_min, x_max, y_min, y_max, z_min, z_max);
 
-              x_min = range[0][0];
-              x_max = range[0][1];
-              y_min = range[1][0];
-              y_max = range[1][1];
-              z_min = range[2][0];
-              z_max = range[2][1];
+              x_min = r[0][0];
+              x_max = r[0][1];
+              y_min = r[1][0];
+              y_max = r[1][1];
+              z_min = r[2][0];
+              z_max = r[2][1];
             }
 
             const width = x_max - x_min + 1,
                   height = y_max - y_min + 1;
             const options = {
               range: [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
-              scale: projection.scale ? projection.scale(width, height) : [1, 1, 1],
+              scale: scale ? scale(width, height) : [1, 1, 1],
               position: [Math.sqrt(Math.PI), 0, 0],
             };
 
             if (name === 'polar' && helix) {
-              options.helix = projection.helix;
               options.helix = helixValue;
             }
 
