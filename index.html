@@ -153,53 +153,79 @@
               case 'color': updateColor(); break;
             }
           };
-        }
 
-        function updateRange() {
-          view[0].set('range', [
-            [controls.xMin, controls.xMin + controls.width - 1],
-            [controls.yMin, controls.yMin + controls.height - 1],
-            [controls.yMin, controls.yMin + controls.height - 1]
-          ]);
+          function updateRange() {
+            view[0].set('range', [
+              [controls.xMin, controls.xMin + controls.width - 1],
+              [controls.yMin, controls.yMin + controls.height - 1],
+              [controls.yMin, controls.yMin + controls.height - 1]
+            ]);
 
-          var matrix = view.select('matrix');
+            var matrix = view.select('matrix');
 
-          matrix.expr = divisors(controls.xMin, controls.yMin);
+            matrix.expr = divisors(controls.xMin, controls.yMin);
 
-          matrix.set('width', controls.width);
-          matrix.set('height', controls.height);
+            matrix.set('width', controls.width);
+            matrix.set('height', controls.height);
 
-          matrix.evaluate('expr');
+            matrix.evaluate('expr');
 
-          updateProjection(); // How can this be gotten rid of?
-        }
+            updateProjection(); // How can this be gotten rid of?
+          }
 
-        function updateProjection() {
-          updateDatGui();
-          updateView();
+          function updateProjection() {
+            updateDatGui();
+            updateView();
 
-          function updateDatGui() {
-            if (controls.projection === 'Polar') showPolarOptions();
-            else hidePolarOptions();
+            function updateDatGui() {
+              if (controls.projection === 'Polar') showPolarOptions();
+              else hidePolarOptions();
 
-            function showPolarOptions() {
-              comm.emit('showPolarOptions');
+              function showPolarOptions() {
+                comm.emit('showPolarOptions');
+              }
+
+              function hidePolarOptions() {
+                comm.emit('hidePolarOptions');
+              }
             }
 
-            function hidePolarOptions() {
-              comm.emit('hidePolarOptions');
+            function updateView() {
+              view.remove();
+              constructView();
             }
           }
 
-          function updateView() {
-            view.remove();
-            constructView();
+          function updateHelix() {
+            updateHelixValue();
+          }
+
+          function updateHelixValue() {
+            if (view[0].type === 'polar') {
+              view[0].set('helix', controls.helix ? controls.helixValue : undefined);
+            }
+          }
+
+          function updatePointSize() {
+            view.select('point').set('size', controls.pointSize);
+          }
+
+          function updateOpacity() {
+            view.select('point').set('opacity', controls.opacity);
+          }
+
+          function updateBlending() {
+            view.select('point').set('blending', controls.blending);
+          }
+
+          function updateColor() {
+            view.select('point').set('color', controls.color.map(function(v) { return v / 255; }));
           }
         }
 
         function constructView() {
           view = buildProjection({
-            projection: controls.projection,
+            projection: controls.projection.toLowerCase(),
             xMin: controls.xMin,
             yMin: controls.yMin,
             xMax: controls.xMin + controls.width - 1,
@@ -228,31 +254,6 @@
           return view;
         }
 
-        function updateHelix() {
-          updateHelixValue();
-        }
-
-        function updateHelixValue() {
-          if (view[0].type === 'polar') {
-            view[0].set('helix', controls.helix ? controls.helixValue : undefined);
-          }
-        }
-
-        function updatePointSize() {
-          view.select('point').set('size', controls.pointSize);
-        }
-
-        function updateOpacity() {
-          view.select('point').set('opacity', controls.opacity);
-        }
-
-        function updateBlending() {
-          view.select('point').set('blending', controls.blending);
-        }
-
-        function updateColor() {
-          view.select('point').set('color', controls.color.map(function(v) { return v / 255; }));
-        }
 
 
 
@@ -268,10 +269,10 @@
               helixValue = config.helixValue;
 
           var projections = {
-            'Cartesian': {
+            'cartesian': {
               scale: function(width, height) { return [16/9, 1, 1]; }
             },
-            'Polar': {
+            'polar': {
               x: function(min, max) { return [min, max]; },
               range: function(x_min, x_max, y_min, y_max, z_min, z_max) {
                 return [
@@ -283,7 +284,7 @@
               scale: function(width, height) { return [16/9, 1, 1]; },
               helix: 0.01
             },
-            'Spherical': {
+            'spherical': {
               x: function(min, max) { return [min, Math.sqrt(max)]; },
               range: function(x_min, x_max, y_min, y_max, z_min, z_max) {
                 return [
@@ -334,7 +335,7 @@
             options.helix = helixValue;
           }
 
-          return mathbox[name.toLowerCase()](options);
+          return mathbox[name](options);
         }
       }
 
