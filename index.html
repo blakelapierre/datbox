@@ -13,7 +13,8 @@
     <script src="mathbox-bundle.js"></script>
 
     <script>
-      setupDatGui(setupMathbox());
+      var comm = new Comm();
+      setupDatGui(setupMathbox(comm));
 
       function setupDatGui(controls) {
         var gui = new dat.GUI();
@@ -28,7 +29,7 @@
             w = {min: 1, max: Math.pow(2, 14), step: 1},
             h = {min: 1, max: Math.pow(2, 12), step: 1};
 
-        add(box, [
+        var boxControllers = add(box, [
           ['xMin', x.min, x.max, x.step],
           ['yMin', y.min, y.max, y.step],
           ['width', w.min, w.max, w.step],
@@ -39,36 +40,56 @@
           ['projection', ['Cartesian', 'Polar', 'Spherical']]
         ]);
 
+        var polarOptions;
+        comm.on('showPolarOptions', function(helix, helixValue) {
+          if (polarOptions === undefined) {
+            polarOptions = add(projection, [
+              ['helix', helix],
+              ['helixValue', 0.0001, 2, 0.0001]
+            ]);
+          }
+        });
+
+        comm.on('hidePolarOptions', function() {
+          var controllers = projection.__controllers,
+              length = controllers.length;
+
+          if (polarOptions) {
+            //big hack
+            for (var i = length - 1; i >= length - polarOptions.length; i--) projection.remove(controllers[i]);
+            polarOptions = undefined;
+          }
+        });
 
         add(display, [
           ['pointSize', 1, 10, 1],
+          ['opacity', 0, 1, 0.01],
           ['color']
         ]);
 
-        parameters.open();
-        display.open();
-        box.open();
-        projection.open();
+        [parameters, display, box, projection].forEach(open);
 
         gui.remember(controls);
 
         function add(folder, items) {
-          items.forEach(function(item) { addItem.apply(null, item); });
+          return items.map(function(item) { return addItem.apply(null, item); });
 
           function addItem(name) {
             if (arguments.length > 2) {
               var min = arguments[1], max = arguments[2], step = arguments[3];
-              folder.add(controls, name, min, max).step(step).onChange(update(name));
+              return folder.add(controls, name, min, max).step(step).onChange(update(name));
             }
             else if (arguments.length === 2) {
               var options = arguments[1];
-              folder.add(controls, name, options).onChange(update(name));
+              return folder.add(controls, name, options).onChange(update(name));
             }
             else if (arguments.length === 1) {
-              folder.addColor(controls, name).onChange(update(name));
+              return folder.addColor(controls, name).onChange(update(name));
             }
           }
         }
+
+        function open(folder) { folder.open(); }
 
         function update(name) {
           return function(value) {
@@ -77,7 +98,7 @@
         }
       }
 
-      function setupMathbox() {
+      function setupMathbox(comm) {
 
         var mathbox = mathBox({
           plugins: ['core', 'controls', 'cursor', 'stats'],
@@ -95,35 +116,8 @@
           position: [0, 0, 1]
         });
 
-        var controls = new Controls();
-
-        var view = buildProjection(controls.projection, controls.xMin, controls.xMin + controls.width - 1, controls.yMin, controls.yMin + controls.height - 1, false, 1);
-
-        view
-          .matrix({
-            width: controls.width,
-            height: controls.height,
-            channels: 3,
-            expr: divisors(controls.xMin, controls.yMin),
-          })
-          .point({
-            color: controls.color.map(function(v) { return v / 255; }),
-            size: controls.pointSize,
-            blending: 'add',
-            shape: 'square',
-            opacity: 0.8,
-            zWrite: false,
-            zTest: false,
-          });
-
-        function divisors(x_min, y_min) {
-          return (emit, x, y, i, j, t) => {
-            x = x + x_min;
-            y = y + y_min;
-
-            if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, 2);
-          };
-        }
+        var controls = new Controls(),
+            view = constructView(controls);
 
         return controls;
 
@@ -135,11 +129,14 @@
 
           this.projection = 'Cartesian';
 
+          this.helix = false;
+          this.helixValue = 0.0001;
+
           this.pointSize = 1;
+          this.opacity = 0.8;
           this.color = [68, 174, 218];
 
           this.set = function(name, value) {
-            console.log('set', name, value, this);
             switch(name) {
               case 'xMin':
               case 'yMin':
@@ -148,8 +145,12 @@
 
               case 'projection': updateProjection(); break;
 
-              case 'color': updateColor(); break;
+              case 'helix': updateHelix(); break;
+              case 'helixValue': updateHelixValue(); break;
+
               case 'pointSize': updatePointSize(); break;
+              case 'opacity': updateOpacity(); break;
+              case 'color': updateColor(); break;
             }
           };
         }
@@ -161,15 +162,51 @@
             [controls.yMin, controls.yMin + controls.height - 1]
           ]);
 
-          view.select('matrix').set('width', controls.width);
-          view.select('matrix').set('height', controls.height);
+          var matrix = view.select('matrix');
+
+          matrix.expr = divisors(controls.xMin, controls.yMin);
+
+          matrix.set('width', controls.width);
+          matrix.set('height', controls.height);
+
+          matrix.evaluate('expr');
+
+          updateProjection(); // How can this be gotten rid of?
         }
 
         function updateProjection() {
-          console.log(view);
-          view.remove();
+          updateDatGui();
+          updateView();
 
-          view = buildProjection(controls.projection, controls.xMin, controls.xMin + controls.width - 1, controls.yMin, controls.yMin + controls.height - 1, false, 1);
+          function updateDatGui() {
+            if (controls.projection === 'Polar') showPolarOptions();
+            else hidePolarOptions();
+
+            function showPolarOptions() {
+              comm.emit('showPolarOptions');
+            }
+
+            function hidePolarOptions() {
+              comm.emit('hidePolarOptions');
+            }
+          }
+
+          function updateView() {
+            view.remove();
+            constructView();
+          }
+        }
+
+        function constructView() {
+          view = buildProjection({
+            projection: controls.projection,
+            xMin: controls.xMin,
+            yMin: controls.yMin,
+            xMax: controls.xMin + controls.width - 1,
+            yMax: controls.yMin + controls.height - 1,
+            helix: controls.helix,
+            helixValue: controls.helixValue
+          });
 
           view
             .matrix({
@@ -183,44 +220,59 @@
               size: controls.pointSize,
               blending: 'add',
               shape: 'square',
-              opacity: 0.8,
+              opacity: controls.opacity,
               zWrite: false,
               zTest: false,
             });
 
-          // console.log(newView, view.select('matrix'));
-          // newView[0].add(view.select('matrix')[0]);
-          // newView[0].add(view.select('point')[0]);
-          // console.log(newView, view.select('matrix'));
+          return view;
         }
 
-        function updateColor() {
-          view.select('point').set('color', controls.color.map(function(v) { return v / 255; }));
+        function updateHelix() {
+          updateHelixValue();
+        }
+
+        function updateHelixValue() {
+          console.log(view);
+          if (view[0].type === 'polar') {
+            view[0].set('helix', controls.helix ? controls.helixValue : undefined);
+          }
         }
 
         function updatePointSize() {
           view.select('point').set('size', controls.pointSize);
         }
 
+        function updateOpacity() {
+          view.select('point').set('opacity', controls.opacity);
+        }
+
+        function updateBlending() {
+          view.select('point').set('blending', controls.blending);
+        }
+
+        function updateColor() {
+          view.select('point').set('color', controls.color.map(function(v) { return v / 255; }));
+        }
 
 
 
 
 
+        function buildProjection(config) {
+          var name = config.projection,
+              x_min = config.xMin,
+              x_max = config.xMax,
+              y_min = config.yMin,
+              y_max = config.yMax,
+              helix = config.helix,
+              helixValue = config.helixValue;
 
-
-
-
-
-
-
-        function buildProjection(name, x_min, x_max, y_min, y_max, helix, helixValue) {
           var projections = {
             'Cartesian': {
               scale: function(width, height) { return [16/9, 1, 1]; }
             },
             'Polar': {
-              // x: function(min, max) { return [min, Math.sqrt(max)]; },
               x: function(min, max) { return [min, max]; },
               range: function(x_min, x_max, y_min, y_max, z_min, z_max) {
                 return [
@@ -283,8 +335,6 @@
             options.helix = helixValue;
           }
 
-          console.log('build', helix, options);
-
           return mathbox[name.toLowerCase()](options);
         }
       }
@@ -296,6 +346,22 @@
 
           if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, 2);
         };
+      }
+
+      function Comm() {
+        var listeners = [];
+
+        this.emit = function(name) {
+          (listeners[name] || []).forEach(notify);
+        };
+
+        this.on = function(name, fn) {
+          (listeners[name] = listeners[name] || []).push(fn);
+        };
+
+        function notify(fn) {
+          fn();
+        }
       }
     </script>
   </body>
