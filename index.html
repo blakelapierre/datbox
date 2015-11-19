@@ -166,7 +166,7 @@
               case 'size': pointUpdater('size'); break;
               case 'opacity': pointUpdater('opacity'); break;
               case 'blending': pointUpdater('blending'); break;
-              case 'color': mapped(pointUpdater, 'color', function(v) { return v / 255; }); break;
+              case 'color': mapped(pointUpdater, 'color', v => v / 255); break;
               case 'shape': pointUpdater('shape'); break;
               case 'fill': pointUpdater('fill'); break;
             }
