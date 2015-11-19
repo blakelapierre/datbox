@@ -15,23 +15,25 @@
     <script src="mathbox-bundle.js"></script>
 
     <script type="application/es2015">
-      var comm = new Comm();
+    'use strict';
+
+      const comm = new Comm();
       setupDatGui(setupMathbox(comm));
 
       function setupDatGui(controls) {
-        var gui = new dat.GUI();
+        const gui = new dat.GUI();
 
-        var parameters = gui.addFolder('Parameters'),
-            point = gui.addFolder('Point'),
-            box = parameters.addFolder('Box'),
-            projection = parameters.addFolder('Projection');
+        const parameters = gui.addFolder('Parameters'),
+              point = gui.addFolder('Point'),
+              box = parameters.addFolder('Box'),
+              projection = parameters.addFolder('Projection');
 
-        var x = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
-            y = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
-            w = {min: 1, max: Math.pow(2, 14), step: 1},
-            h = {min: 1, max: Math.pow(2, 12), step: 1};
+        const x = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
+              y = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
+              w = {min: 1, max: Math.pow(2, 14), step: 1},
+              h = {min: 1, max: Math.pow(2, 12), step: 1};
 
-        var boxControllers = add(box, [
+        const boxControllers = add(box, [
           ['xMin', x.min, x.max, x.step],
           ['yMin', y.min, y.max, y.step],
           ['width', w.min, w.max, w.step],
@@ -42,7 +44,7 @@
           ['projection', ['Cartesian', 'Polar', 'Spherical']]
         ]);
 
-        var polarOptions;
+        let polarOptions;
         comm.on('showPolarOptions', function(helix, helixValue) {
           if (polarOptions === undefined) {
             polarOptions = add(projection, [
@@ -54,12 +56,12 @@
         });
 
         comm.on('hidePolarOptions', function() {
-          var controllers = projection.__controllers,
-              length = controllers.length;
+          const controllers = projection.__controllers,
+                length = controllers.length;
 
           if (polarOptions) {
             //big hack
-            for (var i = length - 1; i >= length - polarOptions.length; i--) projection.remove(controllers[i]);
+            for (let i = length - 1; i >= length - polarOptions.length; i--) projection.remove(controllers[i]);
             polarOptions = undefined;
           }
         });
@@ -81,13 +83,13 @@
           return items.map(addItem);
 
           function addItem(params) {
-            var name = params[0];
+            const name = params[0];
             if (params.length > 2) {
-              var min = params[1], max = params[2], step = params[3];
+              const min = params[1], max = params[2], step = params[3];
               return folder.add(controls, name, min, max).step(step).onChange(update(name));
             }
             else if (params.length === 2) {
-              var options = params[1];
+              const options = params[1];
               return folder.add(controls, name, options).onChange(update(name));
             }
             else if (params.length === 1) {
@@ -107,24 +109,25 @@
 
       function setupMathbox(comm) {
 
-        var mathbox = mathBox({
+        const mathbox = mathBox({
           plugins: ['core', 'controls', 'cursor', 'stats'],
           controls: {
             klass: THREE.OrbitControls
           },
         });
 
-        var three = mathbox.three;
+        const three = mathbox.three;
 
         three.renderer.setClearColor(new THREE.Color(0x000000), 1.0);
 
-        var camera = mathbox.camera({
+        const camera = mathbox.camera({
           proxy: true,
           position: [0, 0, 1]
         });
 
-        var controls = new Controls(),
-            view = constructView(controls);
+        const controls = new Controls();
+
+        var view = constructView(controls); // Babel transpilation of this errors with `let`...not sure that is right
 
         return controls;
 
@@ -147,7 +150,7 @@
           this.shape = 'square';
           this.fill = true;
 
-          var pointUpdater = updater('point');
+          const pointUpdater = updater('point');
 
           this.set = function(name, value) {
             switch(name) {
@@ -178,7 +181,7 @@
               [controls.yMin, controls.yMin + controls.height - 1]
             ]);
 
-            var matrix = view.select('matrix');
+            const matrix = view.select('matrix');
 
             matrix.expr = divisors(controls.xMin, controls.yMin);
 
@@ -231,7 +234,7 @@
 
           function updater(type) {
             return function updateAttribute(name, fn) {
-              var element = view.select(type);
+              const element = view.select(type);
 
               element.set(name, fn ? fn(controls[name]) : controls[name]);
             };
@@ -243,7 +246,7 @@
         }
 
         function constructView() {
-          var projections = {
+          const projections = {
             'cartesian': {
               scale: function(width, height) { return [16/9, 1, 1]; }
             },
@@ -273,7 +276,7 @@
             }
           };
 
-          var matrix = mathbox.matrix({
+          const matrix = mathbox.matrix({
               width: controls.width,
               height: controls.height,
               channels: 3,
@@ -306,28 +309,28 @@
           return view;
 
           function buildView(view, config) {
-            var name = config.projection,
-                x_min = config.xMin,
-                x_max = config.xMax,
-                y_min = config.yMin,
-                y_max = config.yMax,
-                helix = config.helix,
-                helixValue = config.helixValue;
+            let name = config.projection,
+                  x_min = config.xMin,
+                  x_max = config.xMax,
+                  y_min = config.yMin,
+                  y_max = config.yMax,
+                  helix = config.helix,
+                  helixValue = config.helixValue;
 
-            var z_min = y_min,
-                z_max = y_max;
+            let z_min = y_min,
+                  z_max = y_max;
 
-            var projection = projections[name];
+            const projection = projections[name];
 
             if (projection.z) {
-              var transformed = projection.z(z_min, z_max);
+              const transformed = projection.z(z_min, z_max);
 
               z_min = transformed[0];
               z_max = transformed[1];
             }
 
             if (projection.range) {
-              var range = projection.range(x_min, x_max, y_min, y_max, z_min, z_max);
+              const range = projection.range(x_min, x_max, y_min, y_max, z_min, z_max);
 
               x_min = range[0][0];
               x_max = range[0][1];
@@ -337,9 +340,9 @@
               z_max = range[2][1];
             }
 
-            var width = x_max - x_min + 1,
+            const width = x_max - x_min + 1,
                   height = y_max - y_min + 1;
-            var options = {
+            const options = {
               range: [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
               scale: projection.scale ? projection.scale(width, height) : [1, 1, 1],
               position: [Math.sqrt(Math.PI), 0, 0],
@@ -365,7 +368,7 @@
       }
 
       function Comm() {
-        var listeners = [];
+        const listeners = [];
 
         this.emit = function(name) {
           (listeners[name] || []).forEach(notify);
