@@ -45,7 +45,7 @@
         ]);
 
         let polarOptions;
-        comm.on('showPolarOptions', function(helix, helixValue) {
+        comm.on('showPolarOptions', (helix, helixValue) => {
           if (polarOptions === undefined) {
             polarOptions = add(projection, [
               ['bend', 0.0001, 10, 0.0001],
@@ -101,7 +101,7 @@
         function open(folder) { folder.open(); }
 
         function update(name) {
-          return function(value) {
+          return value => {
             controls.set(name, value);
           };
         }
@@ -152,7 +152,7 @@
 
           const pointUpdater = updater('point');
 
-          this.set = function(name, value) {
+          this.set = (name, value) => {
             switch(name) {
               case 'xMin':
               case 'yMin':
@@ -233,7 +233,7 @@
           }
 
           function updater(type) {
-            return function updateAttribute(name, fn) {
+            return (name, fn) => {
               const element = view.select(type);
 
               element.set(name, fn ? fn(controls[name]) : controls[name]);
@@ -241,38 +241,34 @@
           }
 
           function mapped(updater, name, fn) {
-            return updater(name, function(items) { return items.map(fn); });
+            return updater(name, items => items.map(fn));
           }
         }
 
         function constructView() {
           const projections = {
             'cartesian': {
-              scale: function(width, height) { return [16/9, 1, 1]; }
+              scale: (width, height) => [16/9, 1, 1]
             },
             'polar': {
-              x: function(min, max) { return [min, max]; },
-              range: function(x_min, x_max, y_min, y_max, z_min, z_max) {
-                return [
+              x: (min, max) => [min, max],
+              range: (x_min, x_max, y_min, y_max, z_min, z_max) =>
+                [
                   [x_min, x_max],
                   [y_min, y_max],
                   [z_min, z_max]
-                ];
-              },
-              scale: function(width, height) { return [16/9, 1, 1]; }
+                ],
+              scale: (width, height) => [16/9, 1, 1]
             },
             'spherical': {
-              x: function(min, max) { return [min, Math.sqrt(max)]; },
-              range: function(x_min, x_max, y_min, y_max, z_min, z_max) {
-                return [
+              x: (min, max) => [min, Math.sqrt(max)],
+              range: (x_min, x_max, y_min, y_max, z_min, z_max) =>
+                [
                   [x_min, x_max],
                   [Math.sqrt(y_min), Math.sqrt(y_max)],
                   [Math.round(Math.sqrt(Math.abs(z_min))), Math.round(Math.sqrt(Math.abs(z_max)))]
-                ];
-              },
-              scale: function(width, height) {
-                return [16/9, 1, 1];
-              }
+                ],
+              scale: (width, height) => [16/9, 1, 1]
             }
           };
 
@@ -296,7 +292,7 @@
 
           view
             .point({
-              color: controls.color.map(function(v) { return v / 255; }),
+              color: controls.color.map(v => v / 255),
               size: controls.size,
               blending: controls.blending,
               shape: controls.shape,
@@ -370,13 +366,9 @@
       function Comm() {
         const listeners = [];
 
-        this.emit = function(name) {
-          (listeners[name] || []).forEach(notify);
-        };
+        this.emit = name => (listeners[name] || []).forEach(notify);
 
-        this.on = function(name, fn) {
-          (listeners[name] = listeners[name] || []).push(fn);
-        };
+        this.on = (name, fn) => (listeners[name] = listeners[name] || []).push(fn);
 
         function notify(fn) {
           fn();
