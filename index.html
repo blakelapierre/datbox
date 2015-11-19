@@ -20,7 +20,7 @@
         var gui = new dat.GUI();
 
         var parameters = gui.addFolder('Parameters'),
-            display = gui.addFolder('Display'),
+            point = gui.addFolder('Point'),
             box = parameters.addFolder('Box'),
             projection = parameters.addFolder('Projection');
 
@@ -61,15 +61,15 @@
           }
         });
 
-        add(display, [
-          ['pointSize', 1, 10, 1],
+        add(point, [
+          ['size', 1, 10, 1],
           ['opacity', 0, 1, 0.01],
           ['blending', ['no', 'normal', 'add', 'multiply', 'subtract']],
           ['shape', ['circle', 'square', 'diamond', 'up', 'down', 'left', 'right']],
           ['color']
         ]);
 
-        [parameters, display, box, projection].forEach(open);
+        [parameters, point, box, projection].forEach(open);
 
         gui.remember(controls);
 
@@ -134,7 +134,7 @@
           this.helix = false;
           this.helixValue = 0.0001;
 
-          this.pointSize = 1;
+          this.size = 1;
           this.opacity = 0.8;
           this.blending = 'add';
           this.color = [68, 174, 218];
@@ -152,7 +152,7 @@
               case 'helix': updateHelix(); break;
               case 'helixValue': updateHelixValue(); break;
 
-              case 'pointSize': updatePointSize(); break;
+              case 'size': updateSize(); break;
               case 'opacity': updateOpacity(); break;
               case 'blending': updateBlending(); break;
               case 'color': updateColor(); break;
@@ -212,8 +212,8 @@
             }
           }
 
-          function updatePointSize() {
-            view.select('point').set('size', controls.pointSize);
+          function updateSize() {
+            view.select('point').set('size', controls.size);
           }
 
           function updateOpacity() {
@@ -253,7 +253,7 @@
             })
             .point({
               color: controls.color.map(function(v) { return v / 255; }),
-              size: controls.pointSize,
+              size: controls.size,
               blending: controls.blending,
               shape: controls.shape,
               opacity: controls.opacity,
@@ -354,7 +354,7 @@
           x = x + x_min;
           y = y + y_min;
 
-          if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, 2);
+          if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, y / Math.sqrt(x));
         };
       }
 
