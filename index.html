@@ -44,6 +44,7 @@
         comm.on('showPolarOptions', function(helix, helixValue) {
           if (polarOptions === undefined) {
             polarOptions = add(projection, [
+              ['bend', 0.0001, 10, 0.0001],
               ['helix', helix],
               ['helixValue', 0.0001, 2, 0.0001]
             ]);
@@ -75,18 +76,19 @@
         gui.remember(controls);
 
         function add(folder, items) {
-          return items.map(function(item) { return addItem.apply(null, item); });
+          return items.map(addItem);
 
-          function addItem(name) {
-            if (arguments.length > 2) {
-              var min = arguments[1], max = arguments[2], step = arguments[3];
+          function addItem(params) {
+            var name = params[0];
+            if (params.length > 2) {
+              var min = params[1], max = params[2], step = params[3];
               return folder.add(controls, name, min, max).step(step).onChange(update(name));
             }
-            else if (arguments.length === 2) {
-              var options = arguments[1];
+            else if (params.length === 2) {
+              var options = params[1];
               return folder.add(controls, name, options).onChange(update(name));
             }
-            else if (arguments.length === 1) {
+            else if (params.length === 1) {
               return folder.addColor(controls, name).onChange(update(name));
             }
           }
@@ -132,6 +134,7 @@
 
           this.projection = 'Cartesian';
 
+          this.bend = 1;
           this.helix = false;
           this.helixValue = 0.0001;
 
@@ -153,6 +156,7 @@
 
               case 'projection': updateProjection(); break;
 
+              case 'bend': updateBend(); break;
               case 'helix': updateHelix(); break;
               case 'helixValue': updateHelixValue(); break;
 
@@ -207,6 +211,12 @@
             }
           }
 
+          function updateBend() {
+            if (view[0].type === 'polar') {
+              view[0].set('bend', controls.bend);
+            }
+          }
+
           function updateHelix() {
             updateHelixValue();
           }
@@ -231,52 +241,6 @@
         }
 
         function constructView() {
-          var matrix = mathbox.matrix({
-              width: controls.width,
-              height: controls.height,
-              channels: 3,
-              expr: divisors(controls.xMin, controls.yMin),
-            });
-
-          view = buildProjection(matrix, {
-            projection: controls.projection.toLowerCase(),
-            xMin: controls.xMin,
-            yMin: controls.yMin,
-            xMax: controls.xMin + controls.width - 1,
-            yMax: controls.yMin + controls.height - 1,
-            helix: controls.helix,
-            helixValue: controls.helixValue
-          });
-
-          view
-            .point({
-              color: controls.color.map(function(v) { return v / 255; }),
-              size: controls.size,
-              blending: controls.blending,
-              shape: controls.shape,
-              opacity: controls.opacity,
-              fill: controls.fill,
-              zWrite: false,
-              zTest: false,
-            });
-
-          return view;
-        }
-
-
-
-
-
-
-        function buildProjection(view, config) {
-          var name = config.projection,
-              x_min = config.xMin,
-              x_max = config.xMax,
-              y_min = config.yMin,
-              y_max = config.yMax,
-              helix = config.helix,
-              helixValue = config.helixValue;
-
           var projections = {
             'cartesian': {
               scale: function(width, height) { return [16/9, 1, 1]; }
@@ -290,8 +254,7 @@
                   [z_min, z_max]
                 ];
               },
-              scale: function(width, height) { return [16/9, 1, 1]; },
-              helix: 0.01
+              scale: function(width, height) { return [16/9, 1, 1]; }
             },
             'spherical': {
               x: function(min, max) { return [min, Math.sqrt(max)]; },
@@ -308,43 +271,85 @@
             }
           };
 
-          var z_min = y_min,
-              z_max = y_max;
+          var matrix = mathbox.matrix({
+              width: controls.width,
+              height: controls.height,
+              channels: 3,
+              expr: divisors(controls.xMin, controls.yMin),
+            });
 
-          var projection = projections[name];
+          view = buildView(matrix, {
+            projection: controls.projection.toLowerCase(),
+            xMin: controls.xMin,
+            yMin: controls.yMin,
+            xMax: controls.xMin + controls.width - 1,
+            yMax: controls.yMin + controls.height - 1,
+            helix: controls.helix,
+            bend: controls.bend,
+            helixValue: controls.helixValue
+          });
 
-          if (projection.z) {
-            var transformed = projection.z(z_min, z_max);
+          view
+            .point({
+              color: controls.color.map(function(v) { return v / 255; }),
+              size: controls.size,
+              blending: controls.blending,
+              shape: controls.shape,
+              opacity: controls.opacity,
+              fill: controls.fill,
+              zWrite: false,
+              zTest: false,
+            });
 
-            z_min = transformed[0];
-            z_max = transformed[1];
+          return view;
+
+          function buildView(view, config) {
+            var name = config.projection,
+                x_min = config.xMin,
+                x_max = config.xMax,
+                y_min = config.yMin,
+                y_max = config.yMax,
+                helix = config.helix,
+                helixValue = config.helixValue;
+
+            var z_min = y_min,
+                z_max = y_max;
+
+            var projection = projections[name];
+
+            if (projection.z) {
+              var transformed = projection.z(z_min, z_max);
+
+              z_min = transformed[0];
+              z_max = transformed[1];
+            }
+
+            if (projection.range) {
+              var range = projection.range(x_min, x_max, y_min, y_max, z_min, z_max);
+
+              x_min = range[0][0];
+              x_max = range[0][1];
+              y_min = range[1][0];
+              y_max = range[1][1];
+              z_min = range[2][0];
+              z_max = range[2][1];
+            }
+
+            var width = x_max - x_min + 1,
+                  height = y_max - y_min + 1;
+            var options = {
+              range: [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
+              scale: projection.scale ? projection.scale(width, height) : [1, 1, 1],
+              position: [Math.sqrt(Math.PI), 0, 0],
+            };
+
+            if (name === 'polar' && helix) {
+              options.helix = projection.helix;
+              options.helix = helixValue;
+            }
+
+            return view[name](options);
           }
-
-          if (projection.range) {
-            var range = projection.range(x_min, x_max, y_min, y_max, z_min, z_max);
-
-            x_min = range[0][0];
-            x_max = range[0][1];
-            y_min = range[1][0];
-            y_max = range[1][1];
-            z_min = range[2][0];
-            z_max = range[2][1];
-          }
-
-          var width = x_max - x_min + 1,
-                height = y_max - y_min + 1;
-          var options = {
-            range: [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
-            scale: projection.scale ? projection.scale(width, height) : [1, 1, 1],
-            position: [Math.sqrt(Math.PI), 0, 0],
-          };
-
-          if (name === 'polar' && helix) {
-            options.helix = projection.helix;
-            options.helix = helixValue;
-          }
-
-          return view[name](options);
         }
       }
 
