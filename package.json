@@ -1,0 +1,23 @@
+{
+  "name": "datbox",
+  "version": "1.0.0",
+  "description": "dat.GUI x mathbox",
+  "main": "dat.gui.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blakelapierre/datbox"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/blakelapierre/datbox/issues"
+  },
+  "homepage": "https://github.com/blakelapierre/datbox",
+  "dependencies": {
+    "babel-core": "^6.2.0",
+    "browserify": "^12.0.1"
+  }
+}

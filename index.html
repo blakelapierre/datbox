@@ -9,10 +9,12 @@
     </style>
   </head>
   <body>
+    <!-- <script src="babel-core.js"></script> -->
+    <script src="es2015handler.js"></script>
     <script src="dat.gui.js"></script>
     <script src="mathbox-bundle.js"></script>
 
-    <script>
+    <script type="application/es2015">
       var comm = new Comm();
       setupDatGui(setupMathbox(comm));
 
