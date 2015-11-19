@@ -159,7 +159,7 @@
               case 'size': pointUpdater('size'); break;
               case 'opacity': pointUpdater('opacity'); break;
               case 'blending': pointUpdater('blending'); break;
-              case 'color': pointUpdater('color', function(v) { return v / 255; }); break;
+              case 'color': pointUpdater('color', function(colors) { return colors.map(function(v) { return v / 255; }); }); break;
               case 'shape': pointUpdater('shape'); break;
               case 'fill': pointUpdater('fill'); break;
             }
@@ -218,10 +218,10 @@
           }
 
           function updater(type) {
-            return function updateAttribute(name, mapFn) {
+            return function updateAttribute(name, fn) {
               var element = view.select(type);
 
-              element.set(name, mapFn ? controls[name].map(mapFn) : controls[name]);
+              element.set(name, fn ? fn(controls[name]) : controls[name]);
             };
           }
         }
