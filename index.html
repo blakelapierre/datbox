@@ -140,6 +140,8 @@
           this.color = [68, 174, 218];
           this.shape = 'square';
 
+          var pointUpdater = updater('point');
+
           this.set = function(name, value) {
             switch(name) {
               case 'xMin':
@@ -152,11 +154,11 @@
               case 'helix': updateHelix(); break;
               case 'helixValue': updateHelixValue(); break;
 
-              case 'size': updateSize(); break;
-              case 'opacity': updateOpacity(); break;
-              case 'blending': updateBlending(); break;
-              case 'color': updateColor(); break;
-              case 'shape': updateShape(); break;
+              case 'size': pointUpdater('size'); break;
+              case 'opacity': pointUpdater('opacity'); break;
+              case 'blending': pointUpdater('blending'); break;
+              case 'color': pointUpdater('color'); break;
+              case 'shape': pointUpdater('shape'); break;
             }
           };
 
@@ -212,24 +214,16 @@
             }
           }
 
-          function updateSize() {
-            view.select('point').set('size', controls.size);
-          }
-
-          function updateOpacity() {
-            view.select('point').set('opacity', controls.opacity);
-          }
-
-          function updateBlending() {
-            view.select('point').set('blending', controls.blending);
-          }
-
-          function updateShape() {
-            view.select('point').set('shape', controls.shape);
-          }
-
           function updateColor() {
             view.select('point').set('color', controls.color.map(function(v) { return v / 255; }));
+          }
+
+          function updater(type) {
+            return function updateAttribute(name) {
+              var element = view.select(type);
+
+              element.set(name, controls[name]);
+            };
           }
         }
 
