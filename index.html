@@ -231,7 +231,14 @@
         }
 
         function constructView() {
-          view = buildProjection({
+          var matrix = mathbox.matrix({
+              width: controls.width,
+              height: controls.height,
+              channels: 3,
+              expr: divisors(controls.xMin, controls.yMin),
+            });
+
+          view = buildProjection(matrix, {
             projection: controls.projection.toLowerCase(),
             xMin: controls.xMin,
             yMin: controls.yMin,
@@ -242,12 +249,6 @@
           });
 
           view
-            .matrix({
-              width: controls.width,
-              height: controls.height,
-              channels: 3,
-              expr: divisors(controls.xMin, controls.yMin),
-            })
             .point({
               color: controls.color.map(function(v) { return v / 255; }),
               size: controls.size,
@@ -267,7 +268,7 @@
 
 
 
-        function buildProjection(config) {
+        function buildProjection(view, config) {
           var name = config.projection,
               x_min = config.xMin,
               x_max = config.xMax,
@@ -343,7 +344,7 @@
             options.helix = helixValue;
           }
 
-          return mathbox[name](options);
+          return view[name](options);
         }
       }
 
