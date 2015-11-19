@@ -101,9 +101,7 @@
         function open(folder) { folder.open(); }
 
         function update(name) {
-          return value => {
-            controls.set(name, value);
-          };
+          return value => controls.set(name, value);
         }
       }
 
