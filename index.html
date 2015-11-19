@@ -66,6 +66,7 @@
           ['opacity', 0, 1, 0.01],
           ['blending', ['no', 'normal', 'add', 'multiply', 'subtract']],
           ['shape', ['circle', 'square', 'diamond', 'up', 'down', 'left', 'right']],
+          ['fill', false],
           ['color']
         ]);
 
@@ -139,6 +140,7 @@
           this.blending = 'add';
           this.color = [68, 174, 218];
           this.shape = 'square';
+          this.fill = true;
 
           var pointUpdater = updater('point');
 
@@ -159,6 +161,7 @@
               case 'blending': pointUpdater('blending'); break;
               case 'color': pointUpdater('color'); break;
               case 'shape': pointUpdater('shape'); break;
+              case 'fill': pointUpdater('fill'); break;
             }
           };
 
@@ -251,6 +254,7 @@
               blending: controls.blending,
               shape: controls.shape,
               opacity: controls.opacity,
+              fill: controls.fill,
               zWrite: false,
               zTest: false,
             });
