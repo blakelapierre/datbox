@@ -83,16 +83,16 @@
           return items.map(addItem);
 
           function addItem(params) {
-            const name = params[0];
             if (params.length > 2) {
-              const min = params[1], max = params[2], step = params[3];
+              const [name, min, max, step] = params;
               return folder.add(controls, name, min, max).step(step).onChange(update(name));
             }
             else if (params.length === 2) {
-              const options = params[1];
+              const [name, options] = params;
               return folder.add(controls, name, options).onChange(update(name));
             }
             else if (params.length === 1) {
+              const [name] = params;
               return folder.addColor(controls, name).onChange(update(name));
             }
           }
