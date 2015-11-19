@@ -149,7 +149,7 @@
               case 'xMin':
               case 'yMin':
               case 'width':
-              case 'height': updateRange(); break;
+              case 'height': updateBox(); break;
 
               case 'projection': updateProjection(); break;
 
@@ -159,13 +159,13 @@
               case 'size': pointUpdater('size'); break;
               case 'opacity': pointUpdater('opacity'); break;
               case 'blending': pointUpdater('blending'); break;
-              case 'color': pointUpdater('color'); break;
+              case 'color': pointUpdater('color', function(v) { return v / 255; }); break;
               case 'shape': pointUpdater('shape'); break;
               case 'fill': pointUpdater('fill'); break;
             }
           };
 
-          function updateRange() {
+          function updateBox() {
             view[0].set('range', [
               [controls.xMin, controls.xMin + controls.width - 1],
               [controls.yMin, controls.yMin + controls.height - 1],
@@ -217,15 +217,11 @@
             }
           }
 
-          function updateColor() {
-            view.select('point').set('color', controls.color.map(function(v) { return v / 255; }));
-          }
-
           function updater(type) {
-            return function updateAttribute(name) {
+            return function updateAttribute(name, mapFn) {
               var element = view.select(type);
 
-              element.set(name, controls[name]);
+              element.set(name, mapFn ? controls[name].map(mapFn) : controls[name]);
             };
           }
         }
