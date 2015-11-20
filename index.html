@@ -168,15 +168,6 @@
           this.height = Math.pow(2, 4);
 
           this.set = (name, value) => {
-            switch(name) {
-              case 'xMin':
-              case 'yMin':
-              case 'width':
-              case 'height': updateBox.apply(this); break;
-            }
-          }
-
-          function updateBox() {
             view[0].set('range', [
               [this.xMin, this.xMin + this.width - 1],
               [this.yMin, this.yMin + this.height - 1],
