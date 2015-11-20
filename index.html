@@ -32,6 +32,104 @@
       }
     }
 
+    class BoxControls {
+      constructor(root, updateProjection) {
+        this.root = root;
+        this.updateProjection = updateProjection; // ugly
+
+        this.xMin = 1;
+        this.yMin = 1;
+        this.width = Math.pow(2, 5);
+        this.height = Math.pow(2, 4);
+      }
+
+      set(name, value) {
+        const {root, xMin, yMin, width, height} = this,
+              view = root.select('view'),
+              matrix = root.select('matrix');
+
+        view.set('range', [
+          [xMin, xMin + width - 1],
+          [yMin, yMin + height - 1],
+          [yMin, yMin + height - 1]
+        ]);
+
+        matrix.expr = divisors(xMin, yMin);
+
+        matrix.set('width', width);
+        matrix.set('height', height);
+
+        this.updateProjection(); // How can this be gotten rid of?
+      }
+    }
+
+    class ViewControls {
+      constructor(root, updateProjection) {
+        this.root = root;
+        this.updateProjection = updateProjection;
+
+        this.projection = 'Cartesian';
+
+        this.bend = 1;
+        this.helix = false;
+        this.helixValue = 0.0001;
+      }
+
+      set(name, value) {
+        switch(name) {
+          case 'projection': this.updateProjection(); break;
+
+          case 'bend': this.updateBend(); break;
+          case 'helix':
+          case 'helixValue': this.updateHelixValue(); break;
+        }
+      };
+
+      updateBend() {
+        const {root, bend} = this,
+              polar = root.select('polar');
+
+        if (polar) polar.set('bend', bend);
+      }
+
+      updateHelixValue() {
+        const {root, helix, helixValue} = this,
+              polar = root.select('polar');
+
+        if (polar) polar.set('helix', helix ? helixValue : 0);
+      }
+    }
+
+    class PointControls {
+      constructor(root) {
+        this.root = root;
+
+        this.size = 1;
+        this.opacity = 0.8;
+        this.blending = 'add';
+        this.color = [68, 174, 218];
+        this.shape = 'square';
+        this.fill = true;
+      }
+
+      set(name, value) {
+        const {root} = this,
+              point = root.select('point');
+
+        if (name === 'color') value = value.map(v => v / 255);
+
+        point.set(name, value);
+      }
+
+      updater(type) {
+        return (name, fn) => {
+          const element = view.select(type);
+
+          element.set(name, fn ? fn(this[name]) : this[name]);
+        };
+      }
+    }
+
       const comm = new Comm();
       setupDatGui(setupMathbox(comm));
 
@@ -151,105 +249,15 @@
           position: [0, 0, 1]
         });
 
-        const boxControls = new BoxControls(),
-              viewControls = new ViewControls(),
-              pointControls = new PointControls();
+        const boxControls = new BoxControls(mathbox, updateProjection),
+              viewControls = new ViewControls(mathbox, updateProjection),
+              pointControls = new PointControls(mathbox);
 
         var view = constructView(boxControls, viewControls); // Babel transpilation of this errors with `let`...not sure that is right
 
         const cameraControls = new CameraControls(camera);
 
         return {boxControls, viewControls, pointControls, cameraControls};
-
-        function BoxControls() {
-          this.xMin = 1;
-          this.yMin = 1;
-          this.width = Math.pow(2, 5);
-          this.height = Math.pow(2, 4);
-
-          this.set = (name, value) => {
-            view[0].set('range', [
-              [this.xMin, this.xMin + this.width - 1],
-              [this.yMin, this.yMin + this.height - 1],
-              [this.yMin, this.yMin + this.height - 1]
-            ]);
-
-            const matrix = view.select('matrix');
-
-            matrix.expr = divisors(this.xMin, this.yMin);
-
-            matrix.set('width', this.width);
-            matrix.set('height', this.height);
-
-            // matrix.evaluate('expr');
-
-            updateProjection(); // How can this be gotten rid of?
-          }
-        }
-
-        function ViewControls() {
-          this.projection = 'Cartesian';
-
-          this.bend = 1;
-          this.helix = false;
-          this.helixValue = 0.0001;
-
-          this.set = (name, value) => {
-            switch(name) {
-              case 'projection': updateProjection(); break;
-
-              case 'bend': updateBend.apply(this); break;
-              case 'helix':
-              case 'helixValue': updateHelixValue.apply(this); break;
-            }
-          };
-
-          function updateBend() {
-            if (view[0].type === 'polar') {
-              view[0].set('bend', this.bend);
-            }
-          }
-
-          function updateHelixValue() {
-            if (view[0].type === 'polar') {
-              view[0].set('helix', this.helix ? this.helixValue : 0);
-            }
-          }
-        }
-
-        function PointControls() {
-          const pointUpdater = updater.call(this, 'point');
-
-          this.size = 1;
-          this.opacity = 0.8;
-          this.blending = 'add';
-          this.color = [68, 174, 218];
-          this.shape = 'square';
-          this.fill = true;
-
-          this.set = (name, value) => {
-            switch(name) {
-              case 'size': pointUpdater('size'); break;
-              case 'opacity': pointUpdater('opacity'); break;
-              case 'blending': pointUpdater('blending'); break;
-              case 'color': mapped(pointUpdater, 'color', v => v / 255); break;
-              case 'shape': pointUpdater('shape'); break;
-              case 'fill': pointUpdater('fill'); break;
-            }
-          };
-
-          function updater(type) {
-            return (name, fn) => {
-              const element = view.select(type);
-
-              element.set(name, fn ? fn(this[name]) : this[name]);
-            };
-          }
-
-          function mapped(updater, name, fn) {
-            return updater(name, items => items.map(fn));
-          }
-        }
 
         function updateProjection() {
           updateDatGui();
