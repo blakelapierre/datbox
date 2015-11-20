@@ -17,37 +17,151 @@
     <script type="application/es2015">
     'use strict';
 
+    class CameraControls {
+      constructor(camera) {
+        this.camera = camera;
+
+        this.fov = 60;
+        this.lookAt = [0, 0, 0];
+        this.position = [0, 0, 1];
+        this.proxy = true;
+      }
+
+      set(name, value) {
+        this.camera.set(name, value);
+      }
+    }
+
+    class BoxControls {
+      constructor(root, updateProjection) {
+        this.root = root;
+        this.updateProjection = updateProjection; // ugly
+
+        this.xMin = 1;
+        this.yMin = 1;
+        this.width = Math.pow(2, 5);
+        this.height = Math.pow(2, 4);
+      }
+
+      set(name, value) {
+        const {root, xMin, yMin, width, height} = this,
+              view = root.select('view'),
+              matrix = root.select('matrix');
+
+        view.set('range', [
+          [xMin, xMin + width - 1],
+          [yMin, yMin + height - 1],
+          [yMin, yMin + height - 1]
+        ]);
+
+        matrix.expr = divisors(xMin, yMin);
+
+        matrix.set('width', width);
+        matrix.set('height', height);
+
+        this.updateProjection(); // How can this be gotten rid of?
+      }
+    }
+
+    class ViewControls {
+      constructor(root, updateProjection) {
+        this.root = root;
+        this.updateProjection = updateProjection;
+
+        this.projection = 'Cartesian';
+
+        this.bend = 1;
+        this.helix = false;
+        this.helixValue = 0.0001;
+      }
+
+      set(name, value) {
+        switch(name) {
+          case 'projection': this.updateProjection(); break;
+
+          case 'bend': this.updateBend(); break;
+          case 'helix':
+          case 'helixValue': this.updateHelixValue(); break;
+        }
+      };
+
+      updateBend() {
+        const {root, bend} = this,
+              polar = root.select('polar');
+
+        if (polar) polar.set('bend', bend);
+      }
+
+      updateHelixValue() {
+        const {root, helix, helixValue} = this,
+              polar = root.select('polar');
+
+        if (polar) polar.set('helix', helix ? helixValue : 0);
+      }
+    }
+
+    class PointControls {
+      constructor(root) {
+        this.root = root;
+
+        this.size = 1;
+        this.opacity = 0.8;
+        this.blending = 'add';
+        this.color = [68, 174, 218];
+        this.shape = 'square';
+        this.fill = true;
+      }
+
+      set(name, value) {
+        const {root} = this,
+              point = root.select('point');
+
+        if (name === 'color') value = value.map(v => v / 255);
+
+        point.set(name, value);
+      }
+
+      updater(type) {
+        return (name, fn) => {
+          const element = view.select(type);
+
+          element.set(name, fn ? fn(this[name]) : this[name]);
+        };
+      }
+    }
+
       const comm = new Comm();
       setupDatGui(setupMathbox(comm));
 
-      function setupDatGui(controls) {
+      function setupDatGui({boxControls, viewControls, pointControls, cameraControls}) {
         const gui = new dat.GUI();
 
         const parameters = gui.addFolder('Parameters'),
-              point = gui.addFolder('Point'),
-              box = parameters.addFolder('Box'),
-              projection = parameters.addFolder('Projection');
+              box = addFolder(parameters, 'Box', boxControls),
+              projection = addFolder(parameters, 'Projection', viewControls),
+              point = addFolder(gui, 'Point', pointControls),
+              camera = addFolder(gui, 'Camera', cameraControls);
 
         const x = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
               y = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
               w = {min: 1, max: Math.pow(2, 14), step: 1},
               h = {min: 1, max: Math.pow(2, 12), step: 1};
 
-        const boxControllers = add(box, [
+        const boxControllers = box.add([
           ['xMin', x.min, x.max, x.step],
           ['yMin', y.min, y.max, y.step],
           ['width', w.min, w.max, w.step],
           ['height', h.min, h.max, h.step],
         ]);
 
-        add(projection, [
+        projection.add([
           ['projection', ['Cartesian', 'Polar', 'Spherical']]
         ]);
 
         let polarOptions;
         comm.on('showPolarOptions', (helix, helixValue) => {
           if (polarOptions === undefined) {
-            polarOptions = add(projection, [
+            polarOptions = projection.add([
               ['bend', 0.0001, 10, 0.0001],
               ['helix', helix],
               ['helixValue', 0.0001, 2, 0.0001]
@@ -56,17 +170,18 @@
         });
 
         comm.on('hidePolarOptions', () => {
-          const controllers = projection.__controllers,
+          const {folder} = projection,
+                controllers = folder.__controllers,
                 {length} = controllers;
 
           if (polarOptions) {
             //big hack
-            for (let i = length - 1; i >= length - polarOptions.length; i--) projection.remove(controllers[i]);
+            for (let i = length - 1; i >= length - polarOptions.length; i--) folder.remove(controllers[i]);
             polarOptions = undefined;
           }
         });
 
-        add(point, [
+        point.add([
           ['size', 1, 10, 1],
           ['opacity', 0, 1, 0.01],
           ['blending', ['no', 'normal', 'add', 'multiply', 'subtract']],
@@ -75,34 +190,45 @@
           ['color']
         ]);
 
-        [parameters, point, box, projection].forEach(open);
+        camera.add([
+          ['fov', 0, 360, 1]
+        ]);
 
-        gui.remember(controls);
+        [point, box, projection, camera].forEach( b => open(b.folder));
+        parameters.open();
 
-        function add(folder, items) {
-          return items.map(addItem);
+        gui.remember(boxControls, viewControls, pointControls);
 
-          function addItem(params) {
-            if (params.length > 2) {
-              const [name, min, max, step] = params;
-              return folder.add(controls, name, min, max).step(step).onChange(update(name));
+        function addFolder(parent, name, controller) {
+          const folder = parent.addFolder(name);
+
+          return {folder, add};
+
+          function add(items) {
+            return items.map(addItem);
+
+            function addItem(params) {
+              if (params.length > 2) {
+                const [name, min, max, step] = params;
+                return folder.add(controller, name, min, max).step(step).onChange(update(name));
+              }
+              else if (params.length === 2) {
+                const [name, options] = params;
+                return folder.add(controller, name, options).onChange(update(name));
+              }
+              else if (params.length === 1) {
+                const [name] = params;
+                return folder.addColor(controller, name).onChange(update(name));
+              }
             }
-            else if (params.length === 2) {
-              const [name, options] = params;
-              return folder.add(controls, name, options).onChange(update(name));
-            }
-            else if (params.length === 1) {
-              const [name] = params;
-              return folder.addColor(controls, name).onChange(update(name));
-            }
+          }
+
+          function update(name) {
+            return value => controller.set(name, value);
           }
         }
 
         function open(folder) { folder.open(); }
-
-        function update(name) {
-          return value => controls.set(name, value);
-        }
       }
 
       function setupMathbox(comm) {
@@ -123,123 +249,36 @@
           position: [0, 0, 1]
         });
 
-        const controls = new Controls();
+        const boxControls = new BoxControls(mathbox, updateProjection),
+              viewControls = new ViewControls(mathbox, updateProjection),
+              pointControls = new PointControls(mathbox);
 
-        var view = constructView(controls); // Babel transpilation of this errors with `let`...not sure that is right
+        var view = constructView(boxControls, viewControls); // Babel transpilation of this errors with `let`...not sure that is right
 
-        return controls;
+        const cameraControls = new CameraControls(camera);
 
-        function Controls() {
-          this.xMin = 1;
-          this.yMin = 1;
-          this.width = Math.pow(2, 5);
-          this.height = Math.pow(2, 4);
+        return {boxControls, viewControls, pointControls, cameraControls};
 
-          this.projection = 'Cartesian';
+        function updateProjection() {
+          updateDatGui();
+          updateView();
 
-          this.bend = 1;
-          this.helix = false;
-          this.helixValue = 0.0001;
+          function updateDatGui() {
+            if (viewControls.projection === 'Polar') showPolarOptions();
+            else hidePolarOptions();
 
-          this.size = 1;
-          this.opacity = 0.8;
-          this.blending = 'add';
-          this.color = [68, 174, 218];
-          this.shape = 'square';
-          this.fill = true;
-
-          const pointUpdater = updater('point');
-
-          this.set = (name, value) => {
-            switch(name) {
-              case 'xMin':
-              case 'yMin':
-              case 'width':
-              case 'height': updateBox(); break;
-
-              case 'projection': updateProjection(); break;
-
-              case 'bend': updateBend(); break;
-              case 'helix': updateHelix(); break;
-              case 'helixValue': updateHelixValue(); break;
-
-              case 'size': pointUpdater('size'); break;
-              case 'opacity': pointUpdater('opacity'); break;
-              case 'blending': pointUpdater('blending'); break;
-              case 'color': mapped(pointUpdater, 'color', v => v / 255); break;
-              case 'shape': pointUpdater('shape'); break;
-              case 'fill': pointUpdater('fill'); break;
-            }
-          };
-
-          function updateBox() {
-            view[0].set('range', [
-              [controls.xMin, controls.xMin + controls.width - 1],
-              [controls.yMin, controls.yMin + controls.height - 1],
-              [controls.yMin, controls.yMin + controls.height - 1]
-            ]);
-
-            const matrix = view.select('matrix');
-
-            matrix.expr = divisors(controls.xMin, controls.yMin);
-
-            matrix.set('width', controls.width);
-            matrix.set('height', controls.height);
-
-            matrix.evaluate('expr');
-
-            updateProjection(); // How can this be gotten rid of?
-          }
-
-          function updateProjection() {
-            updateDatGui();
-            updateView();
-
-            function updateDatGui() {
-              if (controls.projection === 'Polar') showPolarOptions();
-              else hidePolarOptions();
-
-              function showPolarOptions() {
-                comm.emit('showPolarOptions');
-              }
-
-              function hidePolarOptions() {
-                comm.emit('hidePolarOptions');
-              }
+            function showPolarOptions() {
+              comm.emit('showPolarOptions');
             }
 
-            function updateView() {
-              view.remove();
-              constructView();
+            function hidePolarOptions() {
+              comm.emit('hidePolarOptions');
             }
           }
 
-          function updateBend() {
-            if (view[0].type === 'polar') {
-              view[0].set('bend', controls.bend);
-            }
-          }
-
-          function updateHelix() {
-            updateHelixValue();
-          }
-
-          function updateHelixValue() {
-            if (view[0].type === 'polar') {
-              view[0].set('helix', controls.helix ? controls.helixValue : 0);
-            }
-          }
-
-          function updater(type) {
-            return (name, fn) => {
-              const element = view.select(type);
-
-              element.set(name, fn ? fn(controls[name]) : controls[name]);
-            };
-          }
-
-          function mapped(updater, name, fn) {
-            return updater(name, items => items.map(fn));
+          function updateView() {
+            view.remove();
+            constructView();
           }
         }
 
@@ -270,32 +309,36 @@
             }
           };
 
+          const {xMin, yMin, width, height} = boxControls,
+                {bend, helix, helixValue, projection} = viewControls,
+                {color, size, blending, shape, opacity, fill} = pointControls;
+
           const matrix = mathbox.matrix({
-              width: controls.width,
-              height: controls.height,
+              width: width,
+              height: height,
               channels: 3,
-              expr: divisors(controls.xMin, controls.yMin),
+              expr: divisors(xMin, yMin),
             });
 
           view = buildView(matrix, {
-            projection: controls.projection.toLowerCase(),
-            xMin: controls.xMin,
-            yMin: controls.yMin,
-            xMax: controls.xMin + controls.width - 1,
-            yMax: controls.yMin + controls.height - 1,
-            helix: controls.helix,
-            bend: controls.bend,
-            helixValue: controls.helixValue
+            projection: projection.toLowerCase(),
+            xMin,
+            yMin,
+            xMax: xMin + width - 1,
+            yMax: yMin + height - 1,
+            helix,
+            bend,
+            helixValue
           });
 
           view
             .point({
-              color: controls.color.map(v => v / 255),
-              size: controls.size,
-              blending: controls.blending,
-              shape: controls.shape,
-              opacity: controls.opacity,
-              fill: controls.fill,
+              color: color.map(v => v / 255),
+              size,
+              blending,
+              shape,
+              opacity,
+              fill,
               zWrite: false,
               zTest: false,
             });
@@ -311,7 +354,6 @@
             let z_min = y_min,
                 z_max = y_max;
 
-            const projection = projections[name];
             const {range, scale, z} = projections[name];
 
             if (z) {
