@@ -288,19 +288,22 @@
             }
           };
 
+          const {xMin, yMin, width, height} = boxControls,
+                {color, size, blending, shape, opacity, fill} = pointControls;
+
           const matrix = mathbox.matrix({
-              width: boxControls.width,
-              height: boxControls.height,
+              width: width,
+              height: height,
               channels: 3,
-              expr: divisors(boxControls.xMin, boxControls.yMin),
+              expr: divisors(xMin, yMin),
             });
 
           view = buildView(matrix, {
             projection: viewControls.projection.toLowerCase(),
-            xMin: boxControls.xMin,
-            yMin: boxControls.yMin,
-            xMax: boxControls.xMin + boxControls.width - 1,
-            yMax: boxControls.yMin + boxControls.height - 1,
+            xMin: xMin,
+            yMin: yMin,
+            xMax: xMin + width - 1,
+            yMax: yMin + height - 1,
             helix: viewControls.helix,
             bend: viewControls.bend,
             helixValue: viewControls.helixValue
@@ -308,12 +311,12 @@
 
           view
             .point({
-              color: pointControls.color.map(v => v / 255),
-              size: pointControls.size,
-              blending: pointControls.blending,
-              shape: pointControls.shape,
-              opacity: pointControls.opacity,
-              fill: pointControls.fill,
+              color: color.map(v => v / 255),
+              size: size,
+              blending: blending,
+              shape: shape,
+              opacity: opacity,
+              fill: fill,
               zWrite: false,
               zTest: false,
             });
