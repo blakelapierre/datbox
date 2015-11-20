@@ -20,34 +20,34 @@
       const comm = new Comm();
       setupDatGui(setupMathbox(comm));
 
-      function setupDatGui({controls}) {
+      function setupDatGui({boxControls, viewControls, pointControls}) {
         const gui = new dat.GUI();
 
         const parameters = gui.addFolder('Parameters'),
-              point = gui.addFolder('Point'),
-              box = parameters.addFolder('Box'),
-              projection = parameters.addFolder('Projection');
+              box = addFolder(parameters, 'Box', boxControls),
+              projection = addFolder(parameters, 'Projection', viewControls),
+              point = addFolder(gui, 'Point', pointControls);
 
         const x = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
               y = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
               w = {min: 1, max: Math.pow(2, 14), step: 1},
               h = {min: 1, max: Math.pow(2, 12), step: 1};
 
-        const boxControllers = add(box, [
+        const boxControllers = box.add([
           ['xMin', x.min, x.max, x.step],
           ['yMin', y.min, y.max, y.step],
           ['width', w.min, w.max, w.step],
           ['height', h.min, h.max, h.step],
         ]);
 
-        add(projection, [
+        projection.add([
           ['projection', ['Cartesian', 'Polar', 'Spherical']]
         ]);
 
         let polarOptions;
         comm.on('showPolarOptions', (helix, helixValue) => {
           if (polarOptions === undefined) {
-            polarOptions = add(projection, [
+            polarOptions = projection.add([
               ['bend', 0.0001, 10, 0.0001],
               ['helix', helix],
               ['helixValue', 0.0001, 2, 0.0001]
@@ -56,17 +56,18 @@
         });
 
         comm.on('hidePolarOptions', () => {
-          const controllers = projection.__controllers,
+          const {folder} = projection,
+                controllers = folder.__controllers,
                 {length} = controllers;
 
           if (polarOptions) {
             //big hack
-            for (let i = length - 1; i >= length - polarOptions.length; i--) projection.remove(controllers[i]);
+            for (let i = length - 1; i >= length - polarOptions.length; i--) folder.remove(controllers[i]);
             polarOptions = undefined;
           }
         });
 
-        add(point, [
+        point.add([
           ['size', 1, 10, 1],
           ['opacity', 0, 1, 0.01],
           ['blending', ['no', 'normal', 'add', 'multiply', 'subtract']],
@@ -75,34 +76,41 @@
           ['color']
         ]);
 
-        [parameters, point, box, projection].forEach(open);
+        [point, box, projection].forEach( b => open(b.folder));
+        parameters.open();
 
-        gui.remember(controls);
+        gui.remember(boxControls, viewControls, pointControls);
 
-        function add(folder, items) {
-          return items.map(addItem);
+        function addFolder(parent, name, controller) {
+          const folder = parent.addFolder(name);
 
-          function addItem(params) {
-            if (params.length > 2) {
-              const [name, min, max, step] = params;
-              return folder.add(controls, name, min, max).step(step).onChange(update(name));
+          return {folder, add};
+
+          function add(items) {
+            return items.map(addItem);
+
+            function addItem(params) {
+              if (params.length > 2) {
+                const [name, min, max, step] = params;
+                return folder.add(controller, name, min, max).step(step).onChange(update(name));
+              }
+              else if (params.length === 2) {
+                const [name, options] = params;
+                return folder.add(controller, name, options).onChange(update(name));
+              }
+              else if (params.length === 1) {
+                const [name] = params;
+                return folder.addColor(controller, name).onChange(update(name));
+              }
             }
-            else if (params.length === 2) {
-              const [name, options] = params;
-              return folder.add(controls, name, options).onChange(update(name));
-            }
-            else if (params.length === 1) {
-              const [name] = params;
-              return folder.addColor(controls, name).onChange(update(name));
-            }
+          }
+
+          function update(name) {
+            return value => controller.set(name, value);
           }
         }
 
         function open(folder) { folder.open(); }
-
-        function update(name) {
-          return value => controls.set(name, value);
-        }
       }
 
       function setupMathbox(comm) {
@@ -123,23 +131,81 @@
           position: [0, 0, 1]
         });
 
-        const controls = new Controls();
+        const boxControls = new BoxControls(),
+              viewControls = new ViewControls(),
+              pointControls = new PointControls();
 
-        var view = constructView(controls); // Babel transpilation of this errors with `let`...not sure that is right
+        var view = constructView(boxControls, viewControls); // Babel transpilation of this errors with `let`...not sure that is right
 
-        return {controls};
+        return {boxControls, viewControls, pointControls};
 
-        function Controls() {
+        function BoxControls() {
           this.xMin = 1;
           this.yMin = 1;
           this.width = Math.pow(2, 5);
           this.height = Math.pow(2, 4);
 
+          this.set = (name, value) => {
+            switch(name) {
+              case 'xMin':
+              case 'yMin':
+              case 'width':
+              case 'height': updateBox.apply(this); break;
+            }
+          }
+
+          function updateBox() {
+            view[0].set('range', [
+              [this.xMin, this.xMin + this.width - 1],
+              [this.yMin, this.yMin + this.height - 1],
+              [this.yMin, this.yMin + this.height - 1]
+            ]);
+
+            const matrix = view.select('matrix');
+
+            matrix.expr = divisors(this.xMin, this.yMin);
+
+            matrix.set('width', this.width);
+            matrix.set('height', this.height);
+
+            // matrix.evaluate('expr');
+
+            updateProjection(); // How can this be gotten rid of?
+          }
+        }
+
+        function ViewControls() {
           this.projection = 'Cartesian';
 
           this.bend = 1;
           this.helix = false;
           this.helixValue = 0.0001;
+
+          this.set = (name, value) => {
+            switch(name) {
+              case 'projection': updateProjection(); break;
+
+              case 'bend': updateBend.apply(this); break;
+              case 'helix':
+              case 'helixValue': updateHelixValue.apply(this); break;
+            }
+          };
+
+          function updateBend() {
+            if (view[0].type === 'polar') {
+              view[0].set('bend', this.bend);
+            }
+          }
+
+          function updateHelixValue() {
+            if (view[0].type === 'polar') {
+              view[0].set('helix', this.helix ? this.helixValue : 0);
+            }
+          }
+        }
+
+        function PointControls() {
+          const pointUpdater = updater.call(this, 'point');
 
           this.size = 1;
           this.opacity = 0.8;
@@ -148,21 +214,8 @@
           this.shape = 'square';
           this.fill = true;
 
-          const pointUpdater = updater('point');
-
           this.set = (name, value) => {
             switch(name) {
-              case 'xMin':
-              case 'yMin':
-              case 'width':
-              case 'height': updateBox(); break;
-
-              case 'projection': updateProjection(); break;
-
-              case 'bend': updateBend(); break;
-              case 'helix': updateHelix(); break;
-              case 'helixValue': updateHelixValue(); break;
-
               case 'size': pointUpdater('size'); break;
               case 'opacity': pointUpdater('opacity'); break;
               case 'blending': pointUpdater('blending'); break;
@@ -172,74 +225,39 @@
             }
           };
 
-          function updateBox() {
-            view[0].set('range', [
-              [controls.xMin, controls.xMin + controls.width - 1],
-              [controls.yMin, controls.yMin + controls.height - 1],
-              [controls.yMin, controls.yMin + controls.height - 1]
-            ]);
-
-            const matrix = view.select('matrix');
-
-            matrix.expr = divisors(controls.xMin, controls.yMin);
-
-            matrix.set('width', controls.width);
-            matrix.set('height', controls.height);
-
-            // matrix.evaluate('expr');
-
-            updateProjection(); // How can this be gotten rid of?
-          }
-
-          function updateProjection() {
-            updateDatGui();
-            updateView();
-
-            function updateDatGui() {
-              if (controls.projection === 'Polar') showPolarOptions();
-              else hidePolarOptions();
-
-              function showPolarOptions() {
-                comm.emit('showPolarOptions');
-              }
-
-              function hidePolarOptions() {
-                comm.emit('hidePolarOptions');
-              }
-            }
-
-            function updateView() {
-              view.remove();
-              constructView();
-            }
-          }
-
-          function updateBend() {
-            if (view[0].type === 'polar') {
-              view[0].set('bend', controls.bend);
-            }
-          }
-
-          function updateHelix() {
-            updateHelixValue();
-          }
-
-          function updateHelixValue() {
-            if (view[0].type === 'polar') {
-              view[0].set('helix', controls.helix ? controls.helixValue : 0);
-            }
-          }
-
           function updater(type) {
             return (name, fn) => {
               const element = view.select(type);
 
-              element.set(name, fn ? fn(controls[name]) : controls[name]);
+              element.set(name, fn ? fn(this[name]) : this[name]);
             };
           }
 
           function mapped(updater, name, fn) {
             return updater(name, items => items.map(fn));
+          }
+        }
+
+        function updateProjection() {
+          updateDatGui();
+          updateView();
+
+          function updateDatGui() {
+            if (viewControls.projection === 'Polar') showPolarOptions();
+            else hidePolarOptions();
+
+            function showPolarOptions() {
+              comm.emit('showPolarOptions');
+            }
+
+            function hidePolarOptions() {
+              comm.emit('hidePolarOptions');
+            }
+          }
+
+          function updateView() {
+            view.remove();
+            constructView();
           }
         }
 
@@ -271,31 +289,31 @@
           };
 
           const matrix = mathbox.matrix({
-              width: controls.width,
-              height: controls.height,
+              width: boxControls.width,
+              height: boxControls.height,
               channels: 3,
-              expr: divisors(controls.xMin, controls.yMin),
+              expr: divisors(boxControls.xMin, boxControls.yMin),
             });
 
           view = buildView(matrix, {
-            projection: controls.projection.toLowerCase(),
-            xMin: controls.xMin,
-            yMin: controls.yMin,
-            xMax: controls.xMin + controls.width - 1,
-            yMax: controls.yMin + controls.height - 1,
-            helix: controls.helix,
-            bend: controls.bend,
-            helixValue: controls.helixValue
+            projection: viewControls.projection.toLowerCase(),
+            xMin: boxControls.xMin,
+            yMin: boxControls.yMin,
+            xMax: boxControls.xMin + boxControls.width - 1,
+            yMax: boxControls.yMin + boxControls.height - 1,
+            helix: viewControls.helix,
+            bend: viewControls.bend,
+            helixValue: viewControls.helixValue
           });
 
           view
             .point({
-              color: controls.color.map(v => v / 255),
-              size: controls.size,
-              blending: controls.blending,
-              shape: controls.shape,
-              opacity: controls.opacity,
-              fill: controls.fill,
+              color: pointControls.color.map(v => v / 255),
+              size: pointControls.size,
+              blending: pointControls.blending,
+              shape: pointControls.shape,
+              opacity: pointControls.opacity,
+              fill: pointControls.fill,
               zWrite: false,
               zTest: false,
             });
