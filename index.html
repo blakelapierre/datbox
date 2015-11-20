@@ -20,7 +20,7 @@
       const comm = new Comm();
       setupDatGui(setupMathbox(comm));
 
-      function setupDatGui(controls) {
+      function setupDatGui({controls}) {
         const gui = new dat.GUI();
 
         const parameters = gui.addFolder('Parameters'),
@@ -127,7 +127,7 @@
 
         var view = constructView(controls); // Babel transpilation of this errors with `let`...not sure that is right
 
-        return controls;
+        return {controls};
 
         function Controls() {
           this.xMin = 1;
