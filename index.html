@@ -289,7 +289,7 @@
           };
 
           const {xMin, yMin, width, height} = boxControls,
-                {helix, bend, helixValue} = viewControls,
+                {bend, helix, helixValue, projection} = viewControls,
                 {color, size, blending, shape, opacity, fill} = pointControls;
 
           const matrix = mathbox.matrix({
@@ -300,7 +300,7 @@
             });
 
           view = buildView(matrix, {
-            projection: viewControls.projection.toLowerCase(),
+            projection: projection.toLowerCase(),
             xMin,
             yMin,
             xMax: xMin + width - 1,
