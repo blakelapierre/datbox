@@ -17,16 +17,32 @@
     <script type="application/es2015">
     'use strict';
 
+    class CameraControls {
+      constructor(camera) {
+        this.camera = camera;
+
+        this.fov = 60;
+        this.lookAt = [0, 0, 0];
+        this.position = [0, 0, 1];
+        this.proxy = true;
+      }
+
+      set(name, value) {
+        this.camera.set(name, value);
+      }
+    }
+
       const comm = new Comm();
       setupDatGui(setupMathbox(comm));
 
-      function setupDatGui({boxControls, viewControls, pointControls}) {
+      function setupDatGui({boxControls, viewControls, pointControls, cameraControls}) {
         const gui = new dat.GUI();
 
         const parameters = gui.addFolder('Parameters'),
               box = addFolder(parameters, 'Box', boxControls),
               projection = addFolder(parameters, 'Projection', viewControls),
-              point = addFolder(gui, 'Point', pointControls);
+              point = addFolder(gui, 'Point', pointControls),
+              camera = addFolder(gui, 'Camera', cameraControls);
 
         const x = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
               y = {min: -Math.pow(2, 8), max: Math.pow(2, 8), step: 1},
@@ -76,7 +92,11 @@
           ['color']
         ]);
 
-        [point, box, projection].forEach( b => open(b.folder));
+        camera.add([
+          ['fov', 0, 360, 1]
+        ]);
+
+        [point, box, projection, camera].forEach( b => open(b.folder));
         parameters.open();
 
         gui.remember(boxControls, viewControls, pointControls);
@@ -137,7 +157,9 @@
 
         var view = constructView(boxControls, viewControls); // Babel transpilation of this errors with `let`...not sure that is right
 
-        return {boxControls, viewControls, pointControls};
+        const cameraControls = new CameraControls(camera);
+
+        return {boxControls, viewControls, pointControls, cameraControls};
 
         function BoxControls() {
           this.xMin = 1;
