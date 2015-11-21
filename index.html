@@ -162,9 +162,9 @@
         comm.on('showPolarOptions', (helix, helixValue) => {
           if (polarOptions === undefined) {
             polarOptions = projection.add([
-              ['bend', 0.0001, 10, 0.0001],
+              ['bend', 0.001, 10, 0.001],
               ['helix', helix],
-              ['helixValue', 0.0001, 2, 0.0001]
+              ['helixValue', 0.001, 2, 0.001]
             ]);
           }
         });
@@ -396,7 +396,7 @@
           x = x + x_min;
           y = y + y_min;
 
-          if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, y / Math.sqrt(x));
+          if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, 1);
         };
       }
 
