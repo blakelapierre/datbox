@@ -316,8 +316,11 @@
           const matrix = mathbox.matrix({
               width: width,
               height: height,
-              channels: 3,
+              channels: 2,
               expr: divisors(xMin, yMin),
+            })
+            .swizzle({
+              order: 'xyyw'
             });
 
           view = buildView(matrix, {
@@ -396,7 +399,7 @@
           x = x + x_min;
           y = y + y_min;
 
-          if (x !== 0 && y !== 0 && x % y === 0) emit(x, y, 1);
+          if (x !== 0 && y !== 0 && x % y === 0) emit(x, y);
         };
       }
 
