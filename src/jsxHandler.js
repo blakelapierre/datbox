@@ -23,7 +23,7 @@ scriptHandler('mathbox/jsx', function(text) {
           return element;
         }
       };
-
+console.log(result);
   eval(result.code);
 
   build(mathBox({
