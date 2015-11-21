@@ -33,9 +33,10 @@
     }
 
     class BoxControls {
-      constructor(root, updateProjection) {
+      constructor(root, updateProjection, viewControls) {
         this.root = root;
         this.updateProjection = updateProjection; // ugly
+        this.viewControls = viewControls; // ugly
 
         this.xMin = 1;
         this.yMin = 1;
@@ -45,7 +46,7 @@
 
       set(name, value) {
         const {root, xMin, yMin, width, height} = this,
-              view = root.select('view'),
+              view = root.select(this.viewControls.projection),
               matrix = root.select('matrix');
 
         view.set('range', [
@@ -54,10 +55,13 @@
           [yMin, yMin + height - 1]
         ]);
 
-        matrix.expr = divisors(xMin, yMin);
+        // matrix.expr = divisors(xMin, yMin);
+        matrix.set('expr', divisors(xMin, yMin));
 
         matrix.set('width', width);
         matrix.set('height', height);
+        matrix.set('bufferWidth', width);
+        matrix.set('bufferHeight', height);
 
         this.updateProjection(); // How can this be gotten rid of?
       }
@@ -68,7 +72,7 @@
         this.root = root;
         this.updateProjection = updateProjection;
 
-        this.projection = 'Cartesian';
+        this.projection = 'cartesian';
 
         this.bend = 1;
         this.helix = false;
@@ -155,7 +159,7 @@
         ]);
 
         projection.add([
-          ['projection', ['Cartesian', 'Polar', 'Spherical']]
+          ['projection', {'Cartesian': 'cartesian', 'Polar': 'polar', 'Spherical': 'spherical'}]
         ]);
 
         let polarOptions;
@@ -249,37 +253,27 @@
           position: [0, 0, 1]
         });
 
-        const boxControls = new BoxControls(mathbox, updateProjection),
-              viewControls = new ViewControls(mathbox, updateProjection),
+        const viewControls = new ViewControls(mathbox, updateProjection),
+              boxControls = new BoxControls(mathbox, updateProjection, viewControls),
               pointControls = new PointControls(mathbox);
 
-        var view = constructView(boxControls, viewControls); // Babel transpilation of this errors with `let`...not sure that is right
+        var matrix = constructMatrix(boxControls),
+            view = constructView(); // Babel transpilation of this errors with `let`...not sure that is right
 
         const cameraControls = new CameraControls(camera);
 
         return {boxControls, viewControls, pointControls, cameraControls};
 
-        function updateProjection() {
-          updateDatGui();
-          updateView();
-
-          function updateDatGui() {
-            if (viewControls.projection === 'Polar') showPolarOptions();
-            else hidePolarOptions();
-
-            function showPolarOptions() {
-              comm.emit('showPolarOptions');
-            }
-
-            function hidePolarOptions() {
-              comm.emit('hidePolarOptions');
-            }
-          }
-
-          function updateView() {
-            view.remove();
-            constructView();
-          }
+        function constructMatrix({xMin, yMin, width, height}) {
+          return mathbox.matrix({
+              width: width,
+              height: height,
+              channels: 2,
+              expr: divisors(xMin, yMin),
+            })
+            .swizzle({
+              order: 'xyyx'
+            });
         }
 
         function constructView() {
@@ -313,18 +307,9 @@
                 {bend, helix, helixValue, projection} = viewControls,
                 {color, size, blending, shape, opacity, fill} = pointControls;
 
-          const matrix = mathbox.matrix({
-              width: width,
-              height: height,
-              channels: 2,
-              expr: divisors(xMin, yMin),
-            })
-            .swizzle({
-              order: 'xyyw'
-            });
 
           view = buildView(matrix, {
-            projection: projection.toLowerCase(),
+            projection,
             xMin,
             yMin,
             xMax: xMin + width - 1,
@@ -352,7 +337,7 @@
             let {projection: name,
                  xMin: x_min, xMax: x_max,
                  yMin: y_min, yMax: y_max,
-                 helix, helixValue} = config;
+                 bend, helix, helixValue} = config;
 
             let z_min = y_min,
                 z_max = y_max;
@@ -385,11 +370,38 @@
               position: [Math.sqrt(Math.PI), 0, 0],
             };
 
-            if (name === 'polar' && helix) {
-              options.helix = helixValue;
+            if (name === 'polar') {
+              if (helix) options.helix = helixValue;
+              options.bend = bend;
+            }
+            if (name === 'spherical') {
+              options.eulerOrder = 'zxy';
             }
 
             return view[name](options);
+          }
+        }
+
+        function updateProjection() {
+          updateDatGui();
+          updateView();
+
+          function updateDatGui() {
+            if (viewControls.projection === 'polar') showPolarOptions();
+            else hidePolarOptions();
+
+            function showPolarOptions() {
+              comm.emit('showPolarOptions');
+            }
+
+            function hidePolarOptions() {
+              comm.emit('hidePolarOptions');
+            }
+          }
+
+          function updateView() {
+            view.remove();
+            constructView();
           }
         }
       }
