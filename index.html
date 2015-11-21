@@ -9,10 +9,28 @@
     </style>
   </head>
   <body>
-    <!-- <script src="babel-core.js"></script> -->
-    <script src="es2015handler.js"></script>
+    <script src="handler.js"></script>
     <script src="dat.gui.js"></script>
     <script src="mathbox-bundle.js"></script>
+
+    <script type="mathbox/jsx">
+      var x_min = 1, y_min = 1, props = {width: 32, height: 32};
+      <root id="1">
+        <camera id="2" proxy={true} position={[0, 0, 1]} />
+        <matrix id="3" width={props.width} height={props.height} channels={2} expr={(emit, x, y, i, j, t) => {
+          x = x + x_min;
+          y = y + y_min;
+
+          if (x !== 0 && y !== 0 && x % y === 0) emit(x, y);
+        }} />
+        <swizzle id="4" order="xyzw" />
+        <cartesian id="5" range={[[1, props.width], [1, props.height], [1, 16]]} scale={[16/9, 1, 1]} position={[1.7725, 0, 0]}>
+          <point id="6" color={[4/15, 0.68235, 0.85490]} size={1} blending="add" shape="square" opacity={4/5} fill={true} zWrite={false} zTest={false} />
+        </cartesian>
+      </root>
+
+      setInterval(function() { x_min, y_min, props.width++, props.height++; }, 100);
+    </script>
 
     <script type="application/es2015">
     'use strict';
@@ -135,7 +153,7 @@
     }
 
       const comm = new Comm();
-      setupDatGui(setupMathbox(comm));
+      // setupDatGui(setupMathbox(comm));
 
       function setupDatGui({boxControls, viewControls, pointControls, cameraControls}) {
         const gui = new dat.GUI();

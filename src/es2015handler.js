@@ -1,15 +1,10 @@
-var babel = require('babel-core');
+var scriptHandler = require('./scriptHandler');
 
+var babel = require('babel-core');
 var es2015 = require('babel-preset-es2015');
 
-window.addEventListener('load', function() {
-  var scripts = document.getElementsByTagName('script');
+scriptHandler('application/es2015', function(text) {
+  var result = babel.transform(text, {presets: [es2015]});
 
-  Array.prototype.forEach.call(scripts, function(script) {
-    if (script.type === 'application/es2015') {
-      var result = babel.transform(script.innerHTML, {presets: [es2015]});
-
-      eval(result.code);
-    }
-  });
+  eval(result.code);
 });
